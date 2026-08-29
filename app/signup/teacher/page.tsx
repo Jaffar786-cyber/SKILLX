@@ -22,11 +22,11 @@ export default function TeacherSignupPage() {
     setError("");
 
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: {
-          full_name: fullName,
+          full_name: fullName.trim(),
           role: "teacher",
         },
       },
@@ -48,8 +48,8 @@ export default function TeacherSignupPage() {
       .from("profiles")
       .insert({
         id: data.user.id,
-        full_name: fullName,
-        email,
+        full_name: fullName.trim(),
+        email: email.trim(),
         role: "teacher",
       });
 
@@ -62,14 +62,14 @@ export default function TeacherSignupPage() {
     setMessage("Teacher account created successfully! 🎉");
 
     setTimeout(() => {
-      router.push("/login");
+      router.push("/login?role=teacher");
     }, 1500);
 
     setLoading(false);
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+    <main className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
 
         <div className="text-center mb-8">
@@ -151,7 +151,7 @@ export default function TeacherSignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-blue-600 px-4 py-3.5 font-semibold text-white hover:bg-blue-500 disabled:opacity-60"
+              className="w-full rounded-xl bg-blue-600 px-4 py-3.5 font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Creating Account..." : "Create Teacher Account"}
             </button>
@@ -161,8 +161,9 @@ export default function TeacherSignupPage() {
           <div className="mt-6 text-center text-sm text-slate-400">
             Already have an account?{" "}
             <button
-              onClick={() => router.push("/login")}
-              className="font-semibold text-blue-400"
+              type="button"
+              onClick={() => router.push("/login?role=teacher")}
+              className="font-semibold text-blue-400 hover:text-blue-300"
             >
               Login
             </button>
