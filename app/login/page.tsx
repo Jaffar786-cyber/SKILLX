@@ -1,35 +1,17 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [role, setRole] = useState<"student" | "teacher">("student");
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
-
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-
-    const selectedRole = params.get("role");
-
-    if (selectedRole === "teacher") {
-      setRole("teacher");
-    } else {
-      setRole("student");
-    }
-  }, []);
-
-  const isTeacher = role === "teacher";
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -79,41 +61,8 @@ export default function LoginPage() {
     }, 500);
   }
 
-  function goToStudentLogin() {
-    setRole("student");
-    setError("");
-    setMessage("");
-
-    window.history.replaceState(
-      {},
-      "",
-      "/login?role=student"
-    );
-  }
-
-  function goToTeacherLogin() {
-    setRole("teacher");
-    setError("");
-    setMessage("");
-
-    window.history.replaceState(
-      {},
-      "",
-      "/login?role=teacher"
-    );
-  }
-
-  function handleCreateAccount() {
-    if (isTeacher) {
-      router.push("/signup/teacher");
-    } else {
-      router.push("/signup/student");
-    }
-  }
-
   return (
     <main className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-10">
-
       <div className="w-full max-w-md">
 
         {/* HEADER */}
@@ -128,73 +77,29 @@ export default function LoginPage() {
           </h1>
 
           <p className="mt-2 text-slate-400">
-            {isTeacher
-              ? "Login to continue teaching on SKILLX."
-              : "Login to continue your SKILLX journey."}
+            Login to continue your SKILLX journey.
           </p>
 
         </div>
 
-
-        {/* CARD */}
+        {/* LOGIN CARD */}
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-7 shadow-2xl">
 
-
-          {/* ROLE BUTTONS */}
-          <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-1">
-
-            <button
-              type="button"
-              onClick={goToStudentLogin}
-              className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
-                !isTeacher
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              Student
-            </button>
-
-            <button
-              type="button"
-              onClick={goToTeacherLogin}
-              className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
-                isTeacher
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              Teacher
-            </button>
-
-          </div>
-
-
-          {/* LOGIN TITLE */}
           <div className="mb-6">
 
             <h2 className="text-xl font-semibold text-white">
-              {isTeacher
-                ? "Teacher Login"
-                : "Student Login"}
+              Login to SKILLX
             </h2>
 
             <p className="mt-1 text-sm text-slate-400">
-              {isTeacher
-                ? "Enter your teacher account credentials."
-                : "Enter your student account credentials."}
+              Student and Teacher accounts can login here.
             </p>
 
           </div>
 
-
           {/* FORM */}
-          <form
-            onSubmit={handleLogin}
-            className="space-y-5"
-          >
+          <form onSubmit={handleLogin} className="space-y-5">
 
-            {/* EMAIL */}
             <div>
 
               <label className="mb-2 block text-sm font-medium text-slate-300">
@@ -205,21 +110,13 @@ export default function LoginPage() {
                 type="email"
                 required
                 value={email}
-                onChange={(e) =>
-                  setEmail(e.target.value)
-                }
-                placeholder={
-                  isTeacher
-                    ? "teacher@example.com"
-                    : "student@example.com"
-                }
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500"
               />
 
             </div>
 
-
-            {/* PASSWORD */}
             <div>
 
               <label className="mb-2 block text-sm font-medium text-slate-300">
@@ -230,74 +127,70 @@ export default function LoginPage() {
                 type="password"
                 required
                 value={password}
-                onChange={(e) =>
-                  setPassword(e.target.value)
-                }
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500"
               />
 
             </div>
 
-
-            {/* ERROR */}
             {error && (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 ✕ {error}
               </div>
             )}
 
-
-            {/* SUCCESS */}
             {message && (
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
                 ✓ {message}
               </div>
             )}
 
-
-            {/* LOGIN BUTTON */}
             <button
               type="submit"
               disabled={loading}
               className="w-full rounded-xl bg-blue-600 px-4 py-3.5 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading
-                ? "Signing In..."
-                : isTeacher
-                ? "Login as Teacher"
-                : "Login as Student"}
+              {loading ? "Signing In..." : "Login"}
             </button>
 
           </form>
 
+          {/* SIGNUP SECTION */}
+          <div className="mt-7 border-t border-slate-800 pt-6">
 
-          {/* CREATE ACCOUNT */}
-          <div className="mt-6 text-center text-sm text-slate-400">
+            <p className="mb-4 text-center text-sm text-slate-400">
+              Don&apos;t have an account?
+            </p>
 
-            Don&apos;t have an account?{" "}
+            <div className="grid gap-3">
 
-            <button
-              type="button"
-              onClick={handleCreateAccount}
-              className="font-semibold text-blue-400 transition hover:text-blue-300"
-            >
-              {isTeacher
-                ? "Create Teacher Account"
-                : "Create Student Account"}
-            </button>
+              <button
+                type="button"
+                onClick={() => router.push("/signup/student")}
+                className="w-full rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 font-semibold text-blue-400 transition hover:bg-blue-500/20"
+              >
+                Create Student Account
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push("/signup/teacher")}
+                className="w-full rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 font-semibold text-emerald-400 transition hover:bg-emerald-500/20"
+              >
+                Create Teacher Account
+              </button>
+
+            </div>
 
           </div>
 
-
-          {/* BACK HOME */}
-          <div className="mt-5 text-center">
+          {/* HOME */}
+          <div className="mt-6 text-center">
 
             <button
               type="button"
-              onClick={() =>
-                router.push("/")
-              }
+              onClick={() => router.push("/")}
               className="text-sm text-slate-500 transition hover:text-slate-300"
             >
               ← Back to Home
@@ -307,14 +200,11 @@ export default function LoginPage() {
 
         </div>
 
-
-        {/* FOOTER */}
         <p className="mt-6 text-center text-xs text-slate-500">
           © 2026 SKILLX · Learn. Teach. Grow.
         </p>
 
       </div>
-
     </main>
   );
 }
