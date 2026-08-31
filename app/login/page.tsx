@@ -1,26 +1,35 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  // URL se role read hoga:
-  // /login?role=teacher = Teacher
-  // /login?role=student = Student
-  const role =
-    searchParams.get("role") === "teacher" ? "teacher" : "student";
-
-  const isTeacher = role === "teacher";
+  const [role, setRole] = useState<"student" | "teacher">("student");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    const selectedRole = params.get("role");
+
+    if (selectedRole === "teacher") {
+      setRole("teacher");
+    } else {
+      setRole("student");
+    }
+  }, []);
+
+  const isTeacher = role === "teacher";
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,7 +56,6 @@ export default function LoginPage() {
       return;
     }
 
-    // Logged-in user ka actual role database se check hoga
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("full_name, role")
@@ -62,7 +70,6 @@ export default function LoginPage() {
 
     setMessage("Login successful! ✓");
 
-    // Database role ke according dashboard
     setTimeout(() => {
       if (profile?.role === "teacher") {
         router.replace("/dashboard/teacher");
@@ -73,15 +80,27 @@ export default function LoginPage() {
   }
 
   function goToStudentLogin() {
+    setRole("student");
     setError("");
     setMessage("");
-    router.push("/login?role=student");
+
+    window.history.replaceState(
+      {},
+      "",
+      "/login?role=student"
+    );
   }
 
   function goToTeacherLogin() {
+    setRole("teacher");
     setError("");
     setMessage("");
-    router.push("/login?role=teacher");
+
+    window.history.replaceState(
+      {},
+      "",
+      "/login?role=teacher"
+    );
   }
 
   function handleCreateAccount() {
@@ -94,9 +113,10 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-10">
+
       <div className="w-full max-w-md">
 
-        {/* LOGO + HEADING */}
+        {/* HEADER */}
         <div className="mb-8 text-center">
 
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/30">
@@ -115,10 +135,12 @@ export default function LoginPage() {
 
         </div>
 
-        {/* LOGIN CARD */}
+
+        {/* CARD */}
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-7 shadow-2xl">
 
-          {/* STUDENT / TEACHER SELECTOR */}
+
+          {/* ROLE BUTTONS */}
           <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-950 p-1">
 
             <button
@@ -147,11 +169,14 @@ export default function LoginPage() {
 
           </div>
 
-          {/* LOGIN HEADING */}
+
+          {/* LOGIN TITLE */}
           <div className="mb-6">
 
             <h2 className="text-xl font-semibold text-white">
-              {isTeacher ? "Teacher Login" : "Student Login"}
+              {isTeacher
+                ? "Teacher Login"
+                : "Student Login"}
             </h2>
 
             <p className="mt-1 text-sm text-slate-400">
@@ -162,8 +187,12 @@ export default function LoginPage() {
 
           </div>
 
-          {/* LOGIN FORM */}
-          <form onSubmit={handleLogin} className="space-y-5">
+
+          {/* FORM */}
+          <form
+            onSubmit={handleLogin}
+            className="space-y-5"
+          >
 
             {/* EMAIL */}
             <div>
@@ -176,7 +205,9 @@ export default function LoginPage() {
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) =>
+                  setEmail(e.target.value)
+                }
                 placeholder={
                   isTeacher
                     ? "teacher@example.com"
@@ -186,6 +217,7 @@ export default function LoginPage() {
               />
 
             </div>
+
 
             {/* PASSWORD */}
             <div>
@@ -198,12 +230,15 @@ export default function LoginPage() {
                 type="password"
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) =>
+                  setPassword(e.target.value)
+                }
                 placeholder="Enter your password"
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500"
               />
 
             </div>
+
 
             {/* ERROR */}
             {error && (
@@ -212,12 +247,14 @@ export default function LoginPage() {
               </div>
             )}
 
+
             {/* SUCCESS */}
             {message && (
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
                 ✓ {message}
               </div>
             )}
+
 
             {/* LOGIN BUTTON */}
             <button
@@ -233,6 +270,7 @@ export default function LoginPage() {
             </button>
 
           </form>
+
 
           {/* CREATE ACCOUNT */}
           <div className="mt-6 text-center text-sm text-slate-400">
@@ -251,12 +289,15 @@ export default function LoginPage() {
 
           </div>
 
-          {/* HOME */}
+
+          {/* BACK HOME */}
           <div className="mt-5 text-center">
 
             <button
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() =>
+                router.push("/")
+              }
               className="text-sm text-slate-500 transition hover:text-slate-300"
             >
               ← Back to Home
@@ -266,12 +307,14 @@ export default function LoginPage() {
 
         </div>
 
+
         {/* FOOTER */}
         <p className="mt-6 text-center text-xs text-slate-500">
           © 2026 SKILLX · Learn. Teach. Grow.
         </p>
 
       </div>
+
     </main>
   );
 }
