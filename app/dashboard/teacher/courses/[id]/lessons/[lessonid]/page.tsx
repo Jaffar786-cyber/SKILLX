@@ -14,15 +14,74 @@ type Lesson = {
   content_url: string | null;
 };
 
+function isYouTubeUrl(url: string) {
+  return (
+    url.includes("youtube.com") ||
+    url.includes("youtu.be")
+  );
+}
+
+function getYouTubeEmbedUrl(url: string) {
+  try {
+    const cleanUrl = url.trim();
+
+    // youtu.be/VIDEO_ID
+    if (cleanUrl.includes("youtu.be/")) {
+      const parsedUrl = new URL(cleanUrl);
+      const videoId = parsedUrl.pathname.replace("/", "");
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+
+    // youtube.com/watch?v=VIDEO_ID
+    if (cleanUrl.includes("youtube.com/watch")) {
+      const parsedUrl = new URL(cleanUrl);
+      const videoId = parsedUrl.searchParams.get("v");
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+
+    // youtube.com/shorts/VIDEO_ID
+    if (cleanUrl.includes("youtube.com/shorts/")) {
+      const parsedUrl = new URL(cleanUrl);
+      const parts = parsedUrl.pathname.split("/");
+      const videoId = parts[2];
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+
+    // Already embed format
+    if (cleanUrl.includes("youtube.com/embed/")) {
+      return cleanUrl;
+    }
+
+    return cleanUrl;
+  } catch (error) {
+    console.error("VIDEO URL ERROR:", error);
+    return url;
+  }
+}
+
 export default function LessonLearningPage() {
   const params = useParams();
   const router = useRouter();
 
   const courseId = params.id as string;
-  const lessonId = params.lessonid as string;
+
+  const lessonId = (
+    params.lessonId ??
+    params.lessonid
+  ) as string;
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [courseTitle, setCourseTitle] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -30,6 +89,12 @@ export default function LessonLearningPage() {
     async function loadLesson() {
       setLoading(true);
       setError("");
+
+      if (!courseId || !lessonId) {
+        setError("Invalid course or lesson.");
+        setLoading(false);
+        return;
+      }
 
       const {
         data: { user },
@@ -40,45 +105,61 @@ export default function LessonLearningPage() {
         return;
       }
 
-      // Check teacher profile
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+      // CHECK TEACHER PROFILE
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
 
-      if (profileError || profile?.role !== "teacher") {
+      if (profileError) {
+        console.error("PROFILE ERROR:", profileError);
+        setError("Unable to verify your account.");
+        setLoading(false);
+        return;
+      }
+
+      if (profile?.role !== "teacher") {
         router.replace("/dashboard");
         return;
       }
 
-      // Load course owned by this teacher
-      const { data: course, error: courseError } = await supabase
-        .from("courses")
-        .select("id, title")
-        .eq("id", courseId)
-        .eq("teacher_id", user.id)
-        .single();
+      // LOAD COURSE OWNED BY TEACHER
+      const { data: course, error: courseError } =
+        await supabase
+          .from("courses")
+          .select("id, title")
+          .eq("id", courseId)
+          .eq("teacher_id", user.id)
+          .single();
 
       if (courseError || !course) {
-        setError("Course not found or you are not the owner.");
+        console.error("COURSE ERROR:", courseError);
+
+        setError(
+          "Course not found or you are not the owner."
+        );
+
         setLoading(false);
         return;
       }
 
       setCourseTitle(course.title);
 
-      // Load lesson
-      const { data: lessonData, error: lessonError } = await supabase
-        .from("lessons")
-        .select(
-          "id, title, description, lesson_type, duration, lesson_order, content_url"
-        )
-        .eq("id", lessonId)
-        .eq("course_id", courseId)
-        .single();
+      // LOAD LESSON
+      const { data: lessonData, error: lessonError } =
+        await supabase
+          .from("lessons")
+          .select(
+            "id, title, description, lesson_type, duration, lesson_order, content_url"
+          )
+          .eq("id", lessonId)
+          .eq("course_id", courseId)
+          .single();
 
       if (lessonError || !lessonData) {
+        console.error("LESSON ERROR:", lessonError);
         setError("Lesson not found.");
         setLoading(false);
         return;
@@ -105,20 +186,31 @@ export default function LessonLearningPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+
         <div className="text-center">
+
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-blue-500" />
-          <p className="mt-4">Loading lesson...</p>
+
+          <p className="mt-4">
+            Loading lesson...
+          </p>
+
         </div>
+
       </main>
     );
   }
 
   if (error || !lesson) {
     return (
-      <main className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-6">
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
+
         <div className="max-w-md text-center">
-          <div className="text-5xl">⚠️</div>
+
+          <div className="text-5xl">
+            ⚠️
+          </div>
 
           <h1 className="mt-5 text-2xl font-bold">
             {error || "Lesson not found."}
@@ -129,21 +221,33 @@ export default function LessonLearningPage() {
           </p>
 
           <button
+            type="button"
             onClick={goToLessons}
             className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-500"
           >
             ← Back to Lessons
           </button>
+
         </div>
+
       </main>
     );
   }
+
+  const contentUrl =
+    lesson.content_url?.trim() || "";
+
+  const embedUrl =
+    contentUrl && isYouTubeUrl(contentUrl)
+      ? getYouTubeEmbedUrl(contentUrl)
+      : contentUrl;
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
 
       {/* HEADER */}
       <header className="border-b border-slate-800">
+
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
 
           <div className="flex items-center gap-3">
@@ -153,6 +257,7 @@ export default function LessonLearningPage() {
             </div>
 
             <div>
+
               <h1 className="font-bold">
                 SKILLX
               </h1>
@@ -160,6 +265,7 @@ export default function LessonLearningPage() {
               <p className="text-xs text-slate-500">
                 Teacher Portal
               </p>
+
             </div>
 
           </div>
@@ -167,6 +273,7 @@ export default function LessonLearningPage() {
           <div className="flex gap-3">
 
             <button
+              type="button"
               onClick={goToLessons}
               className="rounded-xl border border-slate-700 px-4 py-2 text-sm hover:bg-slate-800"
             >
@@ -174,6 +281,7 @@ export default function LessonLearningPage() {
             </button>
 
             <button
+              type="button"
               onClick={goToCourse}
               className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold hover:bg-blue-500"
             >
@@ -183,6 +291,7 @@ export default function LessonLearningPage() {
           </div>
 
         </div>
+
       </header>
 
       {/* MAIN */}
@@ -230,21 +339,40 @@ export default function LessonLearningPage() {
         {/* CONTENT */}
         <section className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
 
-          {lesson.content_url ? (
+          {contentUrl ? (
 
-            lesson.lesson_type === "video" ? (
+            lesson.lesson_type?.toLowerCase() === "video" ? (
 
-              <div className="aspect-video bg-black">
+              isYouTubeUrl(contentUrl) ? (
 
-                <iframe
-                  src={lesson.content_url}
-                  title={lesson.title}
-                  className="h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+                <div className="aspect-video bg-black">
 
-              </div>
+                  <iframe
+                    src={embedUrl}
+                    title={lesson.title}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+
+                </div>
+
+              ) : (
+
+                <div className="bg-black">
+
+                  <video
+                    src={contentUrl}
+                    controls
+                    className="aspect-video h-full w-full"
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+
+                </div>
+
+              )
 
             ) : (
 
@@ -263,7 +391,7 @@ export default function LessonLearningPage() {
                 </p>
 
                 <a
-                  href={lesson.content_url}
+                  href={contentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-6 inline-block rounded-xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-500"
@@ -292,6 +420,7 @@ export default function LessonLearningPage() {
               </p>
 
               <button
+                type="button"
                 onClick={goToLessons}
                 className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-500"
               >
@@ -308,6 +437,7 @@ export default function LessonLearningPage() {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
           <button
+            type="button"
             onClick={goToLessons}
             className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold hover:bg-slate-800"
           >
@@ -315,6 +445,7 @@ export default function LessonLearningPage() {
           </button>
 
           <button
+            type="button"
             onClick={goToCourse}
             className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500"
           >
