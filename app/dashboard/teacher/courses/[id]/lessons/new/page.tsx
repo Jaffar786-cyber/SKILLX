@@ -1,23 +1,22 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-export default function NewLessonPage() {
-  const params = useParams();
+export default function NewCoursePage() {
   const router = useRouter();
 
-  const courseId = params.id as string;
-
-  const [courseTitle, setCourseTitle] = useState("");
+  const [teacherId, setTeacherId] = useState("");
 
   const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("");
+  const [level, setLevel] = useState("beginner");
   const [description, setDescription] = useState("");
-  const [lessonType, setLessonType] = useState("video");
   const [duration, setDuration] = useState("");
-  const [lessonOrder, setLessonOrder] = useState("");
-  const [contentUrl, setContentUrl] = useState("");
+  const [hours, setHours] = useState("");
+  const [accessType, setAccessType] = useState("free");
+  const [price, setPrice] = useState("0");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -26,7 +25,7 @@ export default function NewLessonPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function loadPage() {
+    async function checkTeacher() {
       setLoading(true);
       setError("");
 
@@ -39,12 +38,12 @@ export default function NewLessonPage() {
         return;
       }
 
-      // Verify teacher
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
 
       if (profileError) {
         console.error("PROFILE ERROR:", profileError);
@@ -58,135 +57,96 @@ export default function NewLessonPage() {
         return;
       }
 
-      // Verify teacher owns this course
-      const { data: course, error: courseError } = await supabase
-        .from("courses")
-        .select("id, title")
-        .eq("id", courseId)
-        .eq("teacher_id", user.id)
-        .single();
-
-      if (courseError || !course) {
-        console.error("COURSE ERROR:", courseError);
-        setError("Course not found or you are not the owner.");
-        setLoading(false);
-        return;
-      }
-
-      setCourseTitle(course.title);
-
-      // Automatically suggest next lesson number
-      const { data: lessons, error: lessonsError } = await supabase
-        .from("lessons")
-        .select("lesson_order")
-        .eq("course_id", courseId)
-        .order("lesson_order", {
-          ascending: false,
-        })
-        .limit(1);
-
-      if (lessonsError) {
-        console.error("LESSON ORDER ERROR:", lessonsError);
-      }
-
-      const lastOrder =
-        lessons && lessons.length > 0
-          ? Number(lessons[0].lesson_order) || 0
-          : 0;
-
-      setLessonOrder(String(lastOrder + 1));
-
+      setTeacherId(user.id);
       setLoading(false);
     }
 
-    loadPage();
-  }, [courseId, router]);
+    checkTeacher();
+  }, [router]);
 
-  async function createLesson(e: FormEvent<HTMLFormElement>) {
+  async function createCourse(
+    e: FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     setSaving(true);
     setError("");
     setMessage("");
 
+    if (!teacherId) {
+      setError("Teacher account could not be verified.");
+      setSaving(false);
+      return;
+    }
+
     const cleanTitle = title.trim();
+    const cleanCategory = category.trim();
     const cleanDescription = description.trim();
     const cleanDuration = duration.trim();
-    const cleanContentUrl = contentUrl.trim();
 
     if (!cleanTitle) {
-      setError("Lesson title is required.");
+      setError("Course title is required.");
       setSaving(false);
       return;
     }
 
-    if (!lessonOrder || Number(lessonOrder) < 1) {
-      setError("Please enter a valid lesson order.");
+    if (!cleanCategory) {
+      setError("Course category is required.");
       setSaving(false);
       return;
     }
 
-    if (lessonType === "video" && !cleanContentUrl) {
-      setError("Please enter a YouTube or video URL.");
+    if (!cleanDescription) {
+      setError("Course description is required.");
       setSaving(false);
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: newCourse, error: createError } =
+      await supabase
+        .from("courses")
+        .insert({
+          teacher_id: teacherId,
+          title: cleanTitle,
+          category: cleanCategory,
+          level,
+          description: cleanDescription,
+          duration: cleanDuration || null,
+          estimated_hours: Number(hours) || 0,
+          status: "published",
+          access_type: accessType,
+          price:
+            accessType === "free"
+              ? 0
+              : Number(price) || 0,
+        })
+        .select("id")
+        .single();
 
-    if (!user) {
-      router.replace("/login");
-      return;
-    }
+    if (createError) {
+      console.error(
+        "CREATE COURSE ERROR:",
+        createError
+      );
 
-    // Re-check course ownership before saving
-    const { data: course, error: courseError } = await supabase
-      .from("courses")
-      .select("id")
-      .eq("id", courseId)
-      .eq("teacher_id", user.id)
-      .single();
-
-    if (courseError || !course) {
-      setError("You are not allowed to add lessons to this course.");
+      setError(createError.message);
       setSaving(false);
       return;
     }
 
-    const { error: insertError } = await supabase
-      .from("lessons")
-      .insert({
-        course_id: courseId,
-        title: cleanTitle,
-        description: cleanDescription || null,
-        lesson_type: lessonType,
-        duration: cleanDuration || null,
-        lesson_order: Number(lessonOrder),
-        content_url: cleanContentUrl || null,
-      });
-
-    if (insertError) {
-      console.error("CREATE LESSON ERROR:", insertError);
-      setError(insertError.message);
+    if (!newCourse) {
+      setError("Course could not be created.");
       setSaving(false);
       return;
     }
 
-    setMessage("Lesson created successfully! 🎉");
+    setMessage("Course created successfully! 🎉");
 
     setTimeout(() => {
       router.push(
-        `/dashboard/teacher/courses/${courseId}/lessons`
+        `/dashboard/teacher/courses/${newCourse.id}`
       );
     }, 1000);
-  }
-
-  function backToLessons() {
-    router.push(
-      `/dashboard/teacher/courses/${courseId}/lessons`
-    );
   }
 
   if (loading) {
@@ -198,34 +158,6 @@ export default function NewLessonPage() {
           <p className="mt-4">
             Loading...
           </p>
-        </div>
-      </main>
-    );
-  }
-
-  if (error && !courseTitle) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-        <div className="max-w-md text-center">
-
-          <div className="text-5xl">
-            ⚠️
-          </div>
-
-          <h1 className="mt-5 text-2xl font-bold">
-            {error}
-          </h1>
-
-          <button
-            type="button"
-            onClick={() =>
-              router.push("/dashboard/teacher")
-            }
-            className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-500"
-          >
-            ← Teacher Dashboard
-          </button>
-
         </div>
       </main>
     );
@@ -251,10 +183,12 @@ export default function NewLessonPage() {
 
           <button
             type="button"
-            onClick={backToLessons}
+            onClick={() =>
+              router.push("/dashboard/teacher")
+            }
             className="rounded-xl border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
           >
-            ← Lessons
+            ← Back
           </button>
 
         </div>
@@ -266,32 +200,32 @@ export default function NewLessonPage() {
 
         <div className="mb-8">
 
-          <p className="text-sm font-medium uppercase tracking-wide text-blue-400">
-            {courseTitle}
+          <p className="text-sm font-medium text-blue-400">
+            TEACHER PORTAL
           </p>
 
           <h2 className="mt-2 text-3xl font-bold">
-            Create New Lesson
+            Create New Course
           </h2>
 
           <p className="mt-2 text-slate-400">
-            Add lesson content for your students.
+            Build a course for SKILLX students.
           </p>
 
         </div>
 
         <form
-          onSubmit={createLesson}
+          onSubmit={createCourse}
           className="rounded-3xl border border-slate-800 bg-slate-900 p-7"
         >
 
           <div className="grid gap-6 md:grid-cols-2">
 
-            {/* LESSON TITLE */}
+            {/* COURSE TITLE */}
             <div className="md:col-span-2">
 
               <label className="mb-2 block text-sm text-slate-300">
-                Lesson Title
+                Course Title
               </label>
 
               <input
@@ -301,63 +235,65 @@ export default function NewLessonPage() {
                 onChange={(e) =>
                   setTitle(e.target.value)
                 }
-                placeholder="e.g. Introduction to HTML"
+                placeholder="e.g. Complete Web Development"
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
               />
 
             </div>
 
-            {/* LESSON TYPE */}
+            {/* CATEGORY */}
             <div>
 
               <label className="mb-2 block text-sm text-slate-300">
-                Lesson Type
+                Category
+              </label>
+
+              <input
+                type="text"
+                required
+                value={category}
+                onChange={(e) =>
+                  setCategory(e.target.value)
+                }
+                placeholder="e.g. Web Development"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+              />
+
+            </div>
+
+            {/* LEVEL */}
+            <div>
+
+              <label className="mb-2 block text-sm text-slate-300">
+                Level
               </label>
 
               <select
-                value={lessonType}
+                value={level}
                 onChange={(e) =>
-                  setLessonType(e.target.value)
+                  setLevel(e.target.value)
                 }
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
               >
-                <option value="video">
-                  Video
+
+                <option value="beginner">
+                  Beginner
                 </option>
 
-                <option value="article">
-                  Article / Link
+                <option value="intermediate">
+                  Intermediate
                 </option>
 
-                <option value="document">
-                  Document
+                <option value="advanced">
+                  Advanced
                 </option>
+
               </select>
 
             </div>
 
-            {/* LESSON ORDER */}
-            <div>
-
-              <label className="mb-2 block text-sm text-slate-300">
-                Lesson Number
-              </label>
-
-              <input
-                type="number"
-                min="1"
-                required
-                value={lessonOrder}
-                onChange={(e) =>
-                  setLessonOrder(e.target.value)
-                }
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-              />
-
-            </div>
-
             {/* DURATION */}
-            <div className="md:col-span-2">
+            <div>
 
               <label className="mb-2 block text-sm text-slate-300">
                 Duration
@@ -369,7 +305,27 @@ export default function NewLessonPage() {
                 onChange={(e) =>
                   setDuration(e.target.value)
                 }
-                placeholder="e.g. 15 minutes"
+                placeholder="e.g. 8 Weeks"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+              />
+
+            </div>
+
+            {/* ESTIMATED HOURS */}
+            <div>
+
+              <label className="mb-2 block text-sm text-slate-300">
+                Estimated Hours
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                value={hours}
+                onChange={(e) =>
+                  setHours(e.target.value)
+                }
+                placeholder="e.g. 40"
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
               />
 
@@ -383,49 +339,67 @@ export default function NewLessonPage() {
               </label>
 
               <textarea
-                rows={4}
+                required
+                rows={5}
                 value={description}
                 onChange={(e) =>
                   setDescription(e.target.value)
                 }
-                placeholder="What will students learn in this lesson?"
+                placeholder="Describe what students will learn..."
                 className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
               />
 
             </div>
 
-            {/* CONTENT URL */}
-            <div className="md:col-span-2">
+            {/* ACCESS TYPE */}
+            <div>
 
               <label className="mb-2 block text-sm text-slate-300">
-                {lessonType === "video"
-                  ? "YouTube / Video URL"
-                  : "Content URL"}
+                Access Type
               </label>
 
-              <input
-                type="url"
-                value={contentUrl}
+              <select
+                value={accessType}
                 onChange={(e) =>
-                  setContentUrl(e.target.value)
-                }
-                required={lessonType === "video"}
-                placeholder={
-                  lessonType === "video"
-                    ? "https://youtu.be/..."
-                    : "https://example.com/..."
+                  setAccessType(e.target.value)
                 }
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
-              />
+              >
 
-              {lessonType === "video" && (
-                <p className="mt-2 text-xs text-slate-500">
-                  Normal YouTube share link is supported.
-                  Example: https://youtu.be/VIDEO_ID
-                </p>
-              )}
+                <option value="free">
+                  Free
+                </option>
+
+                <option value="paid">
+                  Paid
+                </option>
+
+              </select>
 
             </div>
+
+            {/* PRICE */}
+            {accessType === "paid" && (
+              <div>
+
+                <label className="mb-2 block text-sm text-slate-300">
+                  Price
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={price}
+                  onChange={(e) =>
+                    setPrice(e.target.value)
+                  }
+                  placeholder="0"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+                />
+
+              </div>
+            )}
 
           </div>
 
@@ -443,15 +417,15 @@ export default function NewLessonPage() {
             </div>
           )}
 
-          {/* CREATE BUTTON */}
+          {/* CREATE */}
           <button
             type="submit"
             disabled={saving}
             className="mt-7 w-full rounded-xl bg-blue-600 px-5 py-3.5 font-semibold hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving
-              ? "Creating Lesson..."
-              : "Create Lesson"}
+              ? "Creating Course..."
+              : "Create Course"}
           </button>
 
         </form>
