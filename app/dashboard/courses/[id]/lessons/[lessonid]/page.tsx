@@ -19,12 +19,71 @@ type Course = {
   title: string;
 };
 
+function getYouTubeEmbedUrl(url: string) {
+  try {
+    const cleanUrl = url.trim();
+
+    // youtu.be/VIDEO_ID
+    if (cleanUrl.includes("youtu.be/")) {
+      const parsedUrl = new URL(cleanUrl);
+      const videoId = parsedUrl.pathname.replace("/", "");
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+
+    // youtube.com/watch?v=VIDEO_ID
+    if (cleanUrl.includes("youtube.com/watch")) {
+      const parsedUrl = new URL(cleanUrl);
+      const videoId = parsedUrl.searchParams.get("v");
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+
+    // youtube.com/embed/VIDEO_ID
+    if (cleanUrl.includes("youtube.com/embed/")) {
+      return cleanUrl;
+    }
+
+    // youtube.com/shorts/VIDEO_ID
+    if (cleanUrl.includes("youtube.com/shorts/")) {
+      const parsedUrl = new URL(cleanUrl);
+      const parts = parsedUrl.pathname.split("/");
+      const videoId = parts[2];
+
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    }
+
+    return cleanUrl;
+  } catch (error) {
+    console.error("VIDEO URL ERROR:", error);
+    return url;
+  }
+}
+
+function isYouTubeUrl(url: string) {
+  return (
+    url.includes("youtube.com") ||
+    url.includes("youtu.be")
+  );
+}
+
 export default function StudentLessonPage() {
   const params = useParams();
   const router = useRouter();
 
   const courseId = params.id as string;
-  const lessonId = params.lessonid as string;
+
+  // Works with both [lessonId] and [lessonid] folder naming
+  const lessonId = (
+    params.lessonId ??
+    params.lessonid
+  ) as string;
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [course, setCourse] = useState<Course | null>(null);
@@ -40,6 +99,12 @@ export default function StudentLessonPage() {
       setLoading(true);
       setError("");
 
+      if (!courseId || !lessonId) {
+        setError("Invalid course or lesson.");
+        setLoading(false);
+        return;
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -49,41 +114,55 @@ export default function StudentLessonPage() {
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+      const { data: profile, error: profileError } =
+        await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
 
-      if (profileError || profile?.role !== "student") {
+      if (profileError) {
+        console.error("PROFILE ERROR:", profileError);
+        setError("Unable to verify your account.");
+        setLoading(false);
+        return;
+      }
+
+      if (profile?.role !== "student") {
         router.replace("/dashboard/teacher");
         return;
       }
 
-      const { data: courseData, error: courseError } = await supabase
-        .from("courses")
-        .select("id, title")
-        .eq("id", courseId)
-        .eq("status", "published")
-        .single();
+      const { data: courseData, error: courseError } =
+        await supabase
+          .from("courses")
+          .select("id, title")
+          .eq("id", courseId)
+          .eq("status", "published")
+          .single();
 
       if (courseError || !courseData) {
         console.error("COURSE ERROR:", courseError);
-        setError("Course not found or this course is not published.");
+
+        setError(
+          "Course not found or this course is not published."
+        );
+
         setLoading(false);
         return;
       }
 
       setCourse(courseData);
 
-      const { data: lessonData, error: lessonError } = await supabase
-        .from("lessons")
-        .select(
-          "id, title, description, lesson_type, duration, lesson_order, content_url"
-        )
-        .eq("id", lessonId)
-        .eq("course_id", courseId)
-        .single();
+      const { data: lessonData, error: lessonError } =
+        await supabase
+          .from("lessons")
+          .select(
+            "id, title, description, lesson_type, duration, lesson_order, content_url"
+          )
+          .eq("id", lessonId)
+          .eq("course_id", courseId)
+          .single();
 
       if (lessonError || !lessonData) {
         console.error("LESSON ERROR:", lessonError);
@@ -94,19 +173,24 @@ export default function StudentLessonPage() {
 
       setLesson(lessonData);
 
-      // Check existing progress
-      const { data: progressData, error: progressError } = await supabase
-        .from("lesson_progress")
-        .select("completed")
-        .eq("student_id", user.id)
-        .eq("lesson_id", lessonId)
-        .maybeSingle();
+      const { data: progressData, error: progressError } =
+        await supabase
+          .from("lesson_progress")
+          .select("completed")
+          .eq("student_id", user.id)
+          .eq("lesson_id", lessonId)
+          .maybeSingle();
 
       if (progressError) {
-        console.error("PROGRESS ERROR:", progressError);
+        console.error(
+          "PROGRESS ERROR:",
+          progressError
+        );
       }
 
-      setCompleted(progressData?.completed === true);
+      setCompleted(
+        progressData?.completed === true
+      );
 
       setLoading(false);
     }
@@ -127,24 +211,32 @@ export default function StudentLessonPage() {
       return;
     }
 
-    const { error: progressError } = await supabase
-      .from("lesson_progress")
-      .upsert(
-        {
-          student_id: user.id,
-          course_id: courseId,
-          lesson_id: lessonId,
-          completed: true,
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "student_id,lesson_id",
-        }
-      );
+    const { error: progressError } =
+      await supabase
+        .from("lesson_progress")
+        .upsert(
+          {
+            student_id: user.id,
+            course_id: courseId,
+            lesson_id: lessonId,
+            completed: true,
+            completed_at:
+              new Date().toISOString(),
+            updated_at:
+              new Date().toISOString(),
+          },
+          {
+            onConflict:
+              "student_id,lesson_id",
+          }
+        );
 
     if (progressError) {
-      console.error("SAVE PROGRESS ERROR:", progressError);
+      console.error(
+        "SAVE PROGRESS ERROR:",
+        progressError
+      );
+
       setError(progressError.message);
       setSaving(false);
       return;
@@ -155,7 +247,9 @@ export default function StudentLessonPage() {
   }
 
   function backToCourse() {
-    router.push(`/dashboard/courses/${courseId}`);
+    router.push(
+      `/dashboard/courses/${courseId}`
+    );
   }
 
   if (loading) {
@@ -171,13 +265,16 @@ export default function StudentLessonPage() {
       <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
         <div className="max-w-md text-center">
 
-          <div className="text-5xl">⚠️</div>
+          <div className="text-5xl">
+            ⚠️
+          </div>
 
           <h1 className="mt-5 text-2xl font-bold">
             {error || "Lesson not found"}
           </h1>
 
           <button
+            type="button"
             onClick={backToCourse}
             className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-500"
           >
@@ -188,6 +285,15 @@ export default function StudentLessonPage() {
       </main>
     );
   }
+
+  const contentUrl =
+    lesson.content_url?.trim() || "";
+
+  const embedUrl =
+    contentUrl &&
+    isYouTubeUrl(contentUrl)
+      ? getYouTubeEmbedUrl(contentUrl)
+      : contentUrl;
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -215,6 +321,7 @@ export default function StudentLessonPage() {
           </div>
 
           <button
+            type="button"
             onClick={backToCourse}
             className="rounded-xl border border-slate-700 px-4 py-2 text-sm hover:bg-slate-800"
           >
@@ -275,21 +382,42 @@ export default function StudentLessonPage() {
         {/* VIDEO / CONTENT */}
         <section className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
 
-          {lesson.content_url ? (
+          {contentUrl ? (
 
-            lesson.lesson_type === "video" ? (
+            lesson.lesson_type?.toLowerCase() ===
+            "video" ? (
 
-              <div className="aspect-video bg-black">
+              isYouTubeUrl(contentUrl) ? (
 
-                <iframe
-                  src={lesson.content_url}
-                  title={lesson.title}
-                  className="h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+                <div className="aspect-video bg-black">
 
-              </div>
+                  <iframe
+                    src={embedUrl}
+                    title={lesson.title}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+
+                </div>
+
+              ) : (
+
+                <div className="bg-black">
+
+                  <video
+                    src={contentUrl}
+                    controls
+                    className="aspect-video h-full w-full"
+                  >
+                    Your browser does not
+                    support the video tag.
+                  </video>
+
+                </div>
+
+              )
 
             ) : (
 
@@ -304,11 +432,12 @@ export default function StudentLessonPage() {
                 </h3>
 
                 <p className="mt-2 text-slate-400">
-                  Open the lesson content to continue learning.
+                  Open the lesson content to
+                  continue learning.
                 </p>
 
                 <a
-                  href={lesson.content_url}
+                  href={contentUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-6 inline-block rounded-xl bg-blue-600 px-6 py-3 font-semibold hover:bg-blue-500"
@@ -333,7 +462,8 @@ export default function StudentLessonPage() {
               </h3>
 
               <p className="mt-2 text-slate-500">
-                This lesson does not have content yet.
+                This lesson does not have
+                content yet.
               </p>
 
             </div>
@@ -370,11 +500,14 @@ export default function StudentLessonPage() {
             ) : (
 
               <button
+                type="button"
                 onClick={markComplete}
                 disabled={saving}
                 className="rounded-xl bg-emerald-600 px-6 py-3 font-semibold hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {saving ? "Saving..." : "✓ Mark as Complete"}
+                {saving
+                  ? "Saving..."
+                  : "✓ Mark as Complete"}
               </button>
 
             )}
@@ -394,6 +527,7 @@ export default function StudentLessonPage() {
         <div className="mt-8 flex items-center justify-between">
 
           <button
+            type="button"
             onClick={backToCourse}
             className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold hover:bg-slate-800"
           >
@@ -401,6 +535,7 @@ export default function StudentLessonPage() {
           </button>
 
           <button
+            type="button"
             onClick={backToCourse}
             className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold hover:bg-blue-500"
           >
