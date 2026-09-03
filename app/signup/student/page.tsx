@@ -22,8 +22,6 @@ export default function StudentSignupPage() {
     setMessage("");
     setError("");
 
-    console.log("SIGNUP STARTED");
-
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -35,14 +33,8 @@ export default function StudentSignupPage() {
       },
     });
 
-    // Diagnostic information
-    console.log("SUPABASE USER:", data.user);
-    console.log("SUPABASE SESSION:", data.session);
-    console.log("SUPABASE ERROR:", error);
-
     // Auth error
     if (error) {
-      console.error("AUTH ERROR:", error.message);
       setError(error.message);
       setLoading(false);
       return;
@@ -50,13 +42,10 @@ export default function StudentSignupPage() {
 
     // No user returned
     if (!data.user) {
-      console.error("NO USER WAS RETURNED");
       setError("Account could not be created. Please try again.");
       setLoading(false);
       return;
     }
-
-    console.log("USER CREATED:", data.user.id);
 
     // Create profile
     const { error: profileError } = await supabase
@@ -69,8 +58,6 @@ export default function StudentSignupPage() {
       });
 
     if (profileError) {
-      console.error("PROFILE ERROR:", profileError);
-
       setError(
         `Account was created, but profile could not be saved: ${profileError.message}`
       );
@@ -78,8 +65,6 @@ export default function StudentSignupPage() {
       setLoading(false);
       return;
     }
-
-    console.log("PROFILE CREATED SUCCESSFULLY");
 
     setMessage("Account created successfully! 🎉");
 

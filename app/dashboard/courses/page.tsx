@@ -37,6 +37,17 @@ export default function CoursesPage() {
         return;
       }
 
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError || profile?.role !== "student") {
+        router.replace("/dashboard/teacher");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("courses")
         .select(

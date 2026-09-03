@@ -14,8 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SkillX",
-  description: "SkillX Learning Platform",
+  title: {
+    default: "SKILLX — Learn. Teach. Grow.",
+    template: "%s | SKILLX",
+  },
+  description:
+    "SKILLX is a learning platform for practical courses, teachers, and student progress.",
 };
 
 export default function RootLayout({

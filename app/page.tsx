@@ -37,7 +37,7 @@ export default function Home() {
           </Link>
 
           <Link
-            href="/login"
+            href="/signup/student"
             className="rounded-lg bg-blue-600 px-5 py-2 font-semibold text-white hover:bg-blue-700"
           >
             Get Started
@@ -68,14 +68,14 @@ export default function Home() {
           <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
 
             <Link
-              href="/login"
+              href="/signup/student"
               className="rounded-xl bg-blue-600 px-8 py-4 font-semibold text-white shadow-lg hover:bg-blue-700"
             >
               Start Learning
             </Link>
 
             <Link
-              href="/login"
+              href="/signup/teacher"
               className="rounded-xl border border-slate-300 px-8 py-4 font-semibold hover:bg-slate-50"
             >
               Become a Teacher
@@ -233,7 +233,7 @@ export default function Home() {
             </p>
 
             <Link
-              href="/login"
+              href="/signup/teacher"
               className="mt-8 inline-block rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
             >
               Start Teaching
@@ -298,14 +298,14 @@ export default function Home() {
         <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
 
           <Link
-            href="/login"
+            href="/signup/student"
             className="rounded-xl bg-white px-7 py-3 font-semibold text-blue-600 hover:bg-blue-50"
           >
             I&apos;m a Student
           </Link>
 
           <Link
-            href="/login"
+            href="/signup/teacher"
             className="rounded-xl border border-white px-7 py-3 font-semibold text-white hover:bg-blue-700"
           >
             I&apos;m a Teacher
